@@ -17,10 +17,10 @@ public class Tara
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
-			ContextSize = 1024,
-			GpuLayerCount = 28,
-			Threads = 8,
-			BatchSize = 512,
+			ContextSize = 4096,
+			GpuLayerCount = 30,
+			Threads = 16,
+			BatchSize = 1024,
 		};
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
 
