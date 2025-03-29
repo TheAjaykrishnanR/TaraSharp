@@ -3,6 +3,7 @@ using LLama.Common;
 using TorchSharp;
 using static TorchSharp.torch;
 using NAudio.Wave;
+using System.Diagnostics;
 
 public class Tara
 {
@@ -120,21 +121,14 @@ public class Tara
 
 	public int parse_piece_to_token(string piece)
 	{
+		if (!piece.Contains(TOKEN_PREFIX)) { return 0; }
 		string token_str = piece.Replace(TOKEN_PREFIX, "");
-		int token = 0;
-		try
-		{
-			token = Convert.ToInt32(token_str.Replace(">", ""));
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"error: {piece} cant be parsed");
-			token = 0;
-		}
+		int token = Convert.ToInt32(token_str.Replace(">", ""));
 		return token;
 	}
 
 	string TOKEN_PREFIX = "<custom_token_";
+	Stopwatch sw = new();
 	public async Task text_to_wav_file(string text, string output_file = @"outputs\tara.wav")
 	{
 		InferenceParams inferPrams = new()
@@ -146,16 +140,19 @@ public class Tara
 		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
 		List<int> ids = new();
 		int count = 0;
+		sw.Start();
 		await foreach (string piece in reply)
 		{
 			int id = turn_token_into_ids(parse_piece_to_token(piece), count);
-			Console.WriteLine($"piece: {piece}, id: {id}");
+			//Console.WriteLine($"piece: {piece}, id: {id}");
 			if (id > 0)
 			{
 				ids.Add(id);
 				count++;
 			}
 		}
+		sw.Stop();
+		Console.WriteLine($"finsihed token generation in {sw.ElapsedMilliseconds} ms");
 
 		List<byte> audio_bytes = new();
 		for (int i = 28; i < ids.Count(); i++)
