@@ -1,5 +1,7 @@
 Orpheus-TTS local speech synthesizer written entirely in C#
 
+written from : [isaiahbjork/orpheus-tts-local](https://github.com/isaiahbjork/orpheus-tts-local)
+
 ### Requirements
 
 ```
