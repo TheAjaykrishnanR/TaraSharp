@@ -19,7 +19,9 @@ Cuda 12
 
 3. `cd TaraSharp`
 
-4. `dotnet run`
+4. Change `model_path` in `Program.cs` to the location where your gguf file is.
+
+5. `dotnet run`
 
 ### Additional Info
 
