@@ -11,7 +11,7 @@ Cuda 12
 
 1. First Clone the git repo:
 
-`git clone https://github.com/TheAjaykrishnanR/TaraSharp`
+ - `git clone https://github.com/TheAjaykrishnanR/TaraSharp`
 
 2. Download the decoder weights from [here](https://github.com/TheAjaykrishnanR/TaraSharp/releases/download/files/pytorch_model_unnormed.bin) and place it `snac\24khz` alongside `config.json`. If you want to use the original weights, see conversion method below.
 
