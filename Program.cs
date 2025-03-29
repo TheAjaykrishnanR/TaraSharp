@@ -19,8 +19,8 @@ public class Tara
 		{
 			ContextSize = 1024,
 			GpuLayerCount = 28,
-			Threads = 6,
-			BatchSize = 512
+			Threads = 8,
+			BatchSize = 512,
 		};
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
 
@@ -41,7 +41,7 @@ public class Tara
 
 	byte[]? convert_to_audio(int[] multiframe)
 	{
-		int[] frames = [];
+		int[] frames;
 		if (multiframe.Length < 7) { Console.WriteLine("multiframe return"); return null; }
 
 		Tensor codes_0 = tensor(Array.Empty<int>(), device: snac_device, dtype: int32);
@@ -137,32 +137,45 @@ public class Tara
 	Stopwatch sw = new();
 	public async Task text_to_wav_file(string text, string output_file = @"outputs\tara.wav")
 	{
+		if (File.Exists(output_file)) { File.Delete(output_file); }
+
 		InferenceParams inferPrams = new()
 		{
-			MaxTokens = 1200,
+			MaxTokens = 600,
 		};
 		string prompt = makeOrpheusPrompt(text);
 		Console.WriteLine($"prompt: {prompt}");
 
 		List<int> ids = new();
-		int count = 0;
 		sw.Start();
 
+		FileStream wav_file = File.OpenWrite(output_file);
+		WaveFileWriter wav_writer = new(wav_file, new WaveFormat(24000, 1));
 		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
 		await foreach (string piece in reply)
 		{
-			int id = turn_token_into_ids(parse_piece_to_token(piece), count);
+			int id = turn_token_into_ids(parse_piece_to_token(piece), ids.Count);
 			//Console.WriteLine($"piece: {piece}, id: {id}");
 			if (id > 0)
 			{
 				ids.Add(id);
-				count++;
+			}
+
+			if (ids.Count % 7 == 0 && ids.Count > 27)
+			{
+				//Console.WriteLine($"{ids.Count}");
+				var bytes = convert_to_audio(ids.TakeLast(28).ToArray());
+				wav_writer.Write(bytes, 0, bytes.Length);
 			}
 		}
+		wav_writer.Dispose();
+		wav_file.Close();
 		sw.Stop();
 		long generation_time = sw.ElapsedMilliseconds;
-		Console.WriteLine($"finsihed token generation in {generation_time} ms");
+		double audio_duration = (new MediaFoundationReader(output_file)).TotalTime.TotalMilliseconds;
+		Console.WriteLine($"Finished, total: {generation_time}, rtf: {audio_duration / generation_time}");
 
+		/*
 		List<byte> audio_bytes = new();
 		for (int i = 28; i < ids.Count(); i++)
 		{
@@ -172,7 +185,6 @@ public class Tara
 				audio_bytes.AddRange(bytes);
 			}
 		}
-		File.Delete(output_file);
 		Console.WriteLine($"min: {audio_bytes.Min()}, max: {audio_bytes.Max()}");
 		if (File.Exists(output_file)) { File.Delete(output_file); }
 		using (FileStream wav_file = File.OpenWrite(output_file))
@@ -185,18 +197,17 @@ public class Tara
 		double audio_duration = (new MediaFoundationReader(output_file)).TotalTime.TotalMilliseconds;
 
 		Console.WriteLine($"Finished writing audio, rtf: {audio_duration / generation_time}");
-
+		*/
 	}
 
 	public static async Task Main()
 	{
-
 		Tara tara = new();
 
-		Console.Write("Enter text: ");
-		string? text = Console.ReadLine();
-		if (text != null)
+		while (true)
 		{
+			Console.Write("Enter text: ");
+			string? text = Console.ReadLine();
 			await tara.text_to_wav_file(text);
 		}
 
