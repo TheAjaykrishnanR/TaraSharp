@@ -6,11 +6,17 @@ using NAudio.Wave;
 
 public class Tara
 {
+	StatelessExecutor executor;
+
 	Snac model;
 	Device snac_device;
 
 	public Tara()
 	{
+		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
+		ModelParams modelParams = new(modelPath) { ContextSize = 1024 };
+		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
+
 		model = Snac.from_pretrained(@"snac\24khz\config.json", @"snac\24khz\pytorch_model_unnormed.bin");
 		snac_device = device("cuda:0");
 		model = model.to(snac_device);
@@ -112,20 +118,79 @@ public class Tara
 
 	}
 
+	public int parse_piece_to_token(string piece)
+	{
+		string token_str = piece.Replace(TOKEN_PREFIX, "");
+		int token = 0;
+		try
+		{
+			token = Convert.ToInt32(token_str.Replace(">", ""));
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"error: {piece} cant be parsed");
+			token = 0;
+		}
+		return token;
+	}
+
+	string TOKEN_PREFIX = "<custom_token_";
+	public async Task text_to_wav_file(string text, string output_file = @"outputs\tara.wav")
+	{
+		InferenceParams inferPrams = new()
+		{
+			MaxTokens = 1200,
+		};
+		string prompt = makeOrpheusPrompt(text);
+		Console.WriteLine($"prompt: {prompt}");
+		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
+		List<int> ids = new();
+		int count = 0;
+		await foreach (string piece in reply)
+		{
+			int id = turn_token_into_ids(parse_piece_to_token(piece), count);
+			Console.WriteLine($"piece: {piece}, id: {id}");
+			if (id > 0)
+			{
+				ids.Add(id);
+				count++;
+			}
+		}
+
+		List<byte> audio_bytes = new();
+		for (int i = 28; i < ids.Count(); i++)
+		{
+			if (i % 7 == 0)
+			{
+				var bytes = convert_to_audio(ids[(i - 28)..i].ToArray());
+				audio_bytes.AddRange(bytes);
+			}
+		}
+		File.Delete(@"outputs\new_tara.wav");
+		Console.WriteLine($"min: {audio_bytes.Min()}, max: {audio_bytes.Max()}");
+		if (File.Exists(output_file)) { File.Delete(output_file); }
+		using (FileStream wav_file = File.OpenWrite(output_file))
+		{
+			WaveFileWriter wav_writer = new(wav_file, new WaveFormat(24000, 1));
+			wav_writer.Write(audio_bytes.ToArray(), 0, audio_bytes.Count());
+		}
+		Console.WriteLine("Finished writing audio !");
+
+	}
+
 	public static async Task Main()
 	{
 
-		/*
-		string modelPath = @"../isaiahbjork-orpheus-3b-0.1-ft-Q4_K_M-GGUF/orpheus-3b-0.1-ft-q4_k_m.gguf";
-		ModelParams modelParams = new(modelPath) { ContextSize = 1024 };
-		StatelessExecutor executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
-		IAsyncEnumerable<string> reply = executor.InferAsync(makeOrpheusPrompt("Hello, I am Tara"));
-		await foreach (string piece in reply)
+		Tara tara = new();
+
+		Console.Write("Enter text: ");
+		string? text = Console.ReadLine();
+		if (text != null)
 		{
-			Console.Write($"{piece} ");
-		}*/
+			await tara.text_to_wav_file(text);
+		}
 
-
+		/*
 		Tara tts = new();
 		Console.WriteLine("Starting to write audio...");
 		string[] token_strings = File.ReadAllLines(@"examples\lined_tokens.txt");
@@ -165,6 +230,8 @@ public class Tara
 			wav_writer.Write(audio_bytes.ToArray(), 0, audio_bytes.Count());
 		}
 		Console.WriteLine("Finished writing audio !");
+
+		*/
 	}
 
 }
