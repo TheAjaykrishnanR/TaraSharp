@@ -15,7 +15,13 @@ public class Tara
 	public Tara()
 	{
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
-		ModelParams modelParams = new(modelPath) { ContextSize = 1024 };
+		ModelParams modelParams = new(modelPath)
+		{
+			ContextSize = 1024,
+			GpuLayerCount = 28,
+			Threads = 6,
+			BatchSize = 512
+		};
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
 
 		model = Snac.from_pretrained(@"snac\24khz\config.json", @"snac\24khz\pytorch_model_unnormed.bin");
@@ -137,10 +143,12 @@ public class Tara
 		};
 		string prompt = makeOrpheusPrompt(text);
 		Console.WriteLine($"prompt: {prompt}");
-		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
+
 		List<int> ids = new();
 		int count = 0;
 		sw.Start();
+
+		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
 		await foreach (string piece in reply)
 		{
 			int id = turn_token_into_ids(parse_piece_to_token(piece), count);
@@ -152,7 +160,8 @@ public class Tara
 			}
 		}
 		sw.Stop();
-		Console.WriteLine($"finsihed token generation in {sw.ElapsedMilliseconds} ms");
+		long generation_time = sw.ElapsedMilliseconds;
+		Console.WriteLine($"finsihed token generation in {generation_time} ms");
 
 		List<byte> audio_bytes = new();
 		for (int i = 28; i < ids.Count(); i++)
@@ -163,15 +172,19 @@ public class Tara
 				audio_bytes.AddRange(bytes);
 			}
 		}
-		File.Delete(@"outputs\new_tara.wav");
+		File.Delete(output_file);
 		Console.WriteLine($"min: {audio_bytes.Min()}, max: {audio_bytes.Max()}");
 		if (File.Exists(output_file)) { File.Delete(output_file); }
 		using (FileStream wav_file = File.OpenWrite(output_file))
 		{
 			WaveFileWriter wav_writer = new(wav_file, new WaveFormat(24000, 1));
 			wav_writer.Write(audio_bytes.ToArray(), 0, audio_bytes.Count());
+			wav_writer.Dispose();
 		}
-		Console.WriteLine("Finished writing audio !");
+
+		double audio_duration = (new MediaFoundationReader(output_file)).TotalTime.TotalMilliseconds;
+
+		Console.WriteLine($"Finished writing audio, rtf: {audio_duration / generation_time}");
 
 	}
 
