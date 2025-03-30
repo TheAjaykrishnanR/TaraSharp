@@ -128,9 +128,9 @@ public class Snac : nn.Module
 	{
 		Tensor z_q = quantizer.from_codes(codes);
 		//Console.WriteLine(z_q.print());
-		Tensor audio_hat = decoder.forward(z_q);
-		//Console.WriteLine(audio_hat[0..100].print());
+		Tensor audio_hat = decoder.forward(z_q); // leaking 
 		return audio_hat;
+		
 	}
 
 	public static Snac from_config(string config_path)
