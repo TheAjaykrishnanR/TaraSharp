@@ -99,7 +99,7 @@ public class Tara
 		) { Console.WriteLine("code over return"); return null; }
 
 		short[] audio_int16;
-		using(NewDisposeScope())
+		using (NewDisposeScope())
 		using (_ = inference_mode())
 		{
 			Tensor audio_hat = model.decode(codes);
@@ -172,7 +172,7 @@ public class Tara
 		}
 		long generation_time = sw.ElapsedMilliseconds;
 		double audio_duration = new MediaFoundationReader(output_file).TotalTime.TotalMilliseconds;
-		Console.WriteLine($"Finished, total: {generation_time}, rtf: {audio_duration / generation_time}");
+		Console.WriteLine($"Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
 	}
 
 	public async Task stream_tts(string text) { }
