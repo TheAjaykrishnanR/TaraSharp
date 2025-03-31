@@ -29,6 +29,9 @@ public class Tara
 		snac_device = device("cuda:0");
 		model = model.to(snac_device);
 
+
+		audio_buffered_stream = new(wave_format);
+		player.Init(audio_buffered_stream);
 	}
 
 	static string makeOrpheusPrompt(string text)
@@ -126,8 +129,16 @@ public class Tara
 		return token;
 	}
 
-	MemoryStream audio_stream_buffer;
+	// <summary>
+	// streaming infra
+	// </summary>
+	WaveFormat wave_format = new(24000, 1);
+	BufferedWaveProvider audio_buffered_stream;
+	MemoryStream memory_stream;
+	WaveOutEvent player = new();
 	WaveFileWriter wav_writer;
+	public bool streaming = false;
+
 	public async Task speech_gen(string text)
 	{
 		InferenceParams inferPrams = new()
@@ -137,8 +148,8 @@ public class Tara
 		string prompt = makeOrpheusPrompt(text);
 		List<int> ids = new();
 
-		audio_stream_buffer = new(8192);
-		wav_writer = new(audio_stream_buffer, new WaveFormat(24000, 1));
+		memory_stream = new(8192);
+		wav_writer = new(memory_stream, wave_format);
 		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
 		await foreach (string piece in reply)
 		{
@@ -150,69 +161,37 @@ public class Tara
 
 			if (ids.Count % 7 == 0 && ids.Count > 27)
 			{
-				var bytes = convert_to_audio(ids.TakeLast(28).ToArray());
-				wav_writer.Write(bytes, 0, bytes.Length);
+				byte[] bytes = convert_to_audio(ids.TakeLast(28).ToArray());
+				if (streaming)
+				{
+					audio_buffered_stream.AddSamples(bytes, 0, bytes.Length);
+				}
+				else
+				{
+					await wav_writer.WriteAsync(bytes, 0, bytes.Length);
+				}
 			}
-			//Console.WriteLine($"{piece}");
 		}
-		wav_writer.Flush(); // call Flush() before writing to file inorder to update the fmt chunk 
+		wav_writer.Flush();
 		Console.WriteLine("wav_writing finished");
 	}
 
-	public async Task text_to_wav_file(string text, string output_file = @"outputs\tara.wav")
+	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
-		using (FileStream wav_file = File.OpenWrite(output_file))
-		{
-			sw.Start();
-			await speech_gen(text);
-			sw.Stop();
-			audio_stream_buffer.WriteTo(wav_file);
-		}
-		long generation_time = sw.ElapsedMilliseconds;
-		double audio_duration = new MediaFoundationReader(output_file).TotalTime.TotalMilliseconds;
-		Console.WriteLine($"Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
-	}
-
-	// <summary>
-	// streaming infra
-	// </summary>
-	class AudioBridge : IWaveProvider
-	{
-		readonly MemoryStream audio_stream_buffer;
-		public AudioBridge(MemoryStream audio_stream_buffer)
-		{
-			this.audio_stream_buffer = audio_stream_buffer;
-			this.audio_stream_buffer.Position = 0;
-		}
-
-		public WaveFormat WaveFormat
-		{
-			get
-			{
-				return new WaveFormat(24000, 1);
-			}
-		}
-
-		public int Read(byte[] buffer, int offset, int count)
-		{
-			int bytesRead = audio_stream_buffer.Read(buffer, offset, count);
-			return bytesRead;
-		}
-	}
-
-	// stream audio soon as its generated
-	public async Task stream_tts(string text)
-	{
-		WaveOutEvent player = new();
-
+		sw.Start();
+		if (streaming) { player.Play(); }
 		await speech_gen(text);
-
-		Console.WriteLine($"Playing audio... buffer: {audio_stream_buffer.Length}");
-		AudioBridge bridge = new(audio_stream_buffer);
-		player.Init(bridge);
-		player.Play();
-		Console.WriteLine("Playing finished");
+		sw.Stop();
+		if (!streaming)
+		{
+			FileStream wav_file = File.OpenWrite(output_file);
+			memory_stream.WriteTo(wav_file);
+			wav_file.Close();
+			long generation_time = sw.ElapsedMilliseconds;
+			double audio_duration = new MediaFoundationReader(output_file).TotalTime.TotalMilliseconds;
+			Console.WriteLine($"Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
+		}
 	}
 
 	public static async Task Main()
@@ -225,8 +204,7 @@ public class Tara
 			string? text = Console.ReadLine();
 			if (text != ":q")
 			{
-				//await tara.text_to_wav_file(text);
-				await tara.stream_tts(text);
+				await tara.talk(text);
 			}
 			else
 			{
