@@ -155,6 +155,7 @@ public class Tara
 			}
 			//Console.WriteLine($"{piece}");
 		}
+		wav_writer.Flush(); // call Flush() before writing to file inorder to update the fmt chunk 
 		Console.WriteLine("wav_writing finished");
 	}
 
@@ -166,16 +167,53 @@ public class Tara
 			sw.Start();
 			await speech_gen(text);
 			sw.Stop();
-			wav_writer.Flush(); // call Flush() before writing to file inorder to update the fmt chunk
 			audio_stream_buffer.WriteTo(wav_file);
-			wav_writer.Dispose();
 		}
 		long generation_time = sw.ElapsedMilliseconds;
 		double audio_duration = new MediaFoundationReader(output_file).TotalTime.TotalMilliseconds;
 		Console.WriteLine($"Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
 	}
 
-	public async Task stream_tts(string text) { }
+	// <summary>
+	// streaming infra
+	// </summary>
+	class AudioBridge : IWaveProvider
+	{
+		readonly MemoryStream audio_stream_buffer;
+		public AudioBridge(MemoryStream audio_stream_buffer)
+		{
+			this.audio_stream_buffer = audio_stream_buffer;
+			this.audio_stream_buffer.Position = 0;
+		}
+
+		public WaveFormat WaveFormat
+		{
+			get
+			{
+				return new WaveFormat(24000, 1);
+			}
+		}
+
+		public int Read(byte[] buffer, int offset, int count)
+		{
+			int bytesRead = audio_stream_buffer.Read(buffer, offset, count);
+			return bytesRead;
+		}
+	}
+
+	// stream audio soon as its generated
+	public async Task stream_tts(string text)
+	{
+		WaveOutEvent player = new();
+
+		await speech_gen(text);
+
+		Console.WriteLine($"Playing audio... buffer: {audio_stream_buffer.Length}");
+		AudioBridge bridge = new(audio_stream_buffer);
+		player.Init(bridge);
+		player.Play();
+		Console.WriteLine("Playing finished");
+	}
 
 	public static async Task Main()
 	{
@@ -187,7 +225,8 @@ public class Tara
 			string? text = Console.ReadLine();
 			if (text != ":q")
 			{
-				await tara.text_to_wav_file(text);
+				//await tara.text_to_wav_file(text);
+				await tara.stream_tts(text);
 			}
 			else
 			{
