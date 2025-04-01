@@ -137,7 +137,7 @@ public class Tara
 	MemoryStream memory_stream;
 	WaveOutEvent player = new();
 	WaveFileWriter wav_writer;
-	public bool streaming = false;
+	public bool streaming = true;
 
 	public async Task speech_gen(string text)
 	{
@@ -176,12 +176,34 @@ public class Tara
 		Console.WriteLine("wav_writing finished");
 	}
 
+	void TimerCallback(object? sender, EventArgs e)
+	{
+		double buffered = audio_buffered_stream.BufferedDuration.TotalMilliseconds;
+		if (buffered < 100)
+		{
+			player.Pause();
+			Console.WriteLine($"Thread Sleeping");
+			Thread.Sleep(200);
+			player.Play();
+		}
+	}
+
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
 		sw.Start();
-		if (streaming) { player.Play(); }
+		System.Timers.Timer timer = new(100);
+		if (streaming)
+		{
+			Task _t = Task.Run(() =>
+			{
+				timer.Elapsed += TimerCallback;
+				timer.Start();
+				player.Play();
+			});
+		}
 		await speech_gen(text);
+		timer.Stop();
 		sw.Stop();
 		if (!streaming)
 		{
