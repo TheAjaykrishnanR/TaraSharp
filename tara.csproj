@@ -14,6 +14,7 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="TorchSharp-cuda-windows" Version="0.105.0" />
     <PackageReference Include="TorchSharp.PyBridge" Version="1.4.3" />
+    <PackageReference Include="Vosk" Version="0.3.38" />
   </ItemGroup>
 
 </Project>

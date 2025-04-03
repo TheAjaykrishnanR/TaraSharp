@@ -4,16 +4,24 @@ using TorchSharp;
 using static TorchSharp.torch;
 using NAudio.Wave;
 using System.Diagnostics;
+using Vosk;
 
 public class Tara
 {
+	// llamasharp
 	StatelessExecutor executor;
 
+	// snac decoder
 	Snac model;
 	Device snac_device;
 
+	// speech recognition
+	Model vosk_model = new(@"vosk\vosk-model-small-en-us-0.15");
+	VoskRecognizer vosk_rec;
+
 	public Tara()
 	{
+		/*
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
@@ -25,13 +33,23 @@ public class Tara
 		};
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
 
+		// snac decoder
 		model = Snac.from_pretrained(@"snac\24khz\config.json", @"snac\24khz\pytorch_model_unnormed.bin");
 		snac_device = device("cuda:0");
 		model = model.to(snac_device);
 
-
+		// naudio live audio streaming
 		audio_buffered_stream = new(wave_format);
 		player.Init(audio_buffered_stream);
+		*/
+		// vosk asr
+		vosk_rec = new(vosk_model, 24000);
+		vosk_rec.SetWords(true);
+		vosk_rec.SetMaxAlternatives(0);
+		audio_input_buffered = new(wave_format);
+		audio_input_buffered.DiscardOnBufferOverflow = true;
+		listener.WaveFormat = wave_format;
+		listener.DataAvailable += listener_callback;
 	}
 
 	static string makeOrpheusPrompt(string text)
@@ -216,10 +234,31 @@ public class Tara
 		}
 	}
 
+	// <summary>
+	// naudio input
+	// </summary>
+	public WaveInEvent listener = new();
+	BufferedWaveProvider audio_input_buffered;
+	void listener_callback(object? sender, WaveInEventArgs e)
+	{
+		Console.WriteLine("listener_callabck() fired");
+		byte[] buffer = e.Buffer;
+		int recorded = e.BytesRecorded;
+		audio_input_buffered.AddSamples(buffer, 0, recorded);
+		if (vosk_rec.AcceptWaveform(buffer, recorded))
+		{
+			Console.WriteLine(vosk_rec.Result());
+		}
+		else
+		{
+			Console.WriteLine(vosk_rec.PartialResult());
+		}
+	}
+
 	public static async Task Main()
 	{
 		Tara tara = new();
-
+		/*
 		while (true)
 		{
 			Console.Write("Enter text: ");
@@ -232,7 +271,17 @@ public class Tara
 			{
 				break;
 			}
-		}
+		}*/
+
+		tara.listener.StartRecording();
+		Console.ReadLine();
+		/*
+		WaveOutEvent _player = new();
+		_player.Init(tara.audio_input_buffered);
+		_player.Play();
+		Console.ReadLine();
+		*/
+
 	}
 
 }
