@@ -42,14 +42,6 @@ public class Tara
 		audio_buffered_stream = new(wave_format);
 		player.Init(audio_buffered_stream);
 		*/
-		// vosk asr
-		vosk_rec = new(vosk_model, 24000);
-		vosk_rec.SetWords(true);
-		vosk_rec.SetMaxAlternatives(0);
-		audio_input_buffered = new(wave_format);
-		audio_input_buffered.DiscardOnBufferOverflow = true;
-		listener.WaveFormat = wave_format;
-		listener.DataAvailable += listener_callback;
 	}
 
 	static string makeOrpheusPrompt(string text)
@@ -234,26 +226,6 @@ public class Tara
 		}
 	}
 
-	// <summary>
-	// naudio input
-	// </summary>
-	public WaveInEvent listener = new();
-	BufferedWaveProvider audio_input_buffered;
-	void listener_callback(object? sender, WaveInEventArgs e)
-	{
-		Console.WriteLine("listener_callabck() fired");
-		byte[] buffer = e.Buffer;
-		int recorded = e.BytesRecorded;
-		audio_input_buffered.AddSamples(buffer, 0, recorded);
-		if (vosk_rec.AcceptWaveform(buffer, recorded))
-		{
-			Console.WriteLine(vosk_rec.Result());
-		}
-		else
-		{
-			Console.WriteLine(vosk_rec.PartialResult());
-		}
-	}
 
 	public static async Task Main()
 	{
@@ -273,7 +245,8 @@ public class Tara
 			}
 		}*/
 
-		tara.listener.StartRecording();
+		//tara.listener.StartRecording();
+		Listener x = new(24000);
 		Console.ReadLine();
 		/*
 		WaveOutEvent _player = new();
