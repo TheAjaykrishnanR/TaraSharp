@@ -5,6 +5,10 @@ using static TorchSharp.torch;
 using NAudio.Wave;
 using System.Diagnostics;
 using Vosk;
+using Microsoft.Extensions.Configuration;
+using System.Text.Json;
+using System.Net.Http.Headers;
+using Newtonsoft.Json;
 
 public class Tara
 {
@@ -225,11 +229,51 @@ public class Tara
 			Console.WriteLine($"Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
 		}
 	}
+}
 
+public class Message(string content)
+{
+
+	public string role { get; set; } = "user";
+	public string content { get; set; } = content;
+}
+
+public class Chat
+{
+	public List<Message> messages { get; set; } = new();
+	public string model { get; set; } = "llama-3.3-70b-versatile";
+}
+
+public class GROK_RESPONSE
+{
+
+}
+
+public partial class Program
+{
+	static HttpClient http = new();
+	static async Task<string> grok_request(string prompt, string api_key)
+	{
+		HttpRequestMessage request = new();
+		request.RequestUri = new("https://api.groq.com/openai/v1/chat/completions");
+		request.Method = HttpMethod.Post;
+		request.Headers.Add("Authorization", $"Bearer {api_key}");
+		Message msg = new(prompt);
+		Chat chat = new();
+		chat.messages.Add(msg);
+		request.Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(chat));
+		request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+		HttpResponseMessage response = await http.SendAsync(request);
+		string json = await response.Content.ReadAsStringAsync();
+		return JsonConvert.DeserializeObject<dynamic>(json)["choices"][0]["message"]["content"].Value;
+	}
 
 	public static async Task Main()
 	{
-		Tara tara = new();
+		var secrets = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
+		//Console.WriteLine($"grok_api_key: {secrets["grok_api_key"]}");
+
+		//Tara tara = new();
 		/*
 		while (true)
 		{
@@ -246,7 +290,9 @@ public class Tara
 		}*/
 
 		//tara.listener.StartRecording();
-		Listener x = new(24000);
+		//Listener listener = new();
+		Console.WriteLine("printing response...");
+		Console.WriteLine(await grok_request("hello", secrets["grok_api_key"]));
 		Console.ReadLine();
 		/*
 		WaveOutEvent _player = new();
@@ -256,5 +302,4 @@ public class Tara
 		*/
 
 	}
-
 }
