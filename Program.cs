@@ -9,6 +9,9 @@ using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using System.Net.Http.Headers;
 using Newtonsoft.Json;
+using OpenAI;
+using OpenAI.Chat;
+using System.ClientModel;
 
 public class Tara
 {
@@ -25,7 +28,6 @@ public class Tara
 
 	public Tara()
 	{
-		/*
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
@@ -45,7 +47,6 @@ public class Tara
 		// naudio live audio streaming
 		audio_buffered_stream = new(wave_format);
 		player.Init(audio_buffered_stream);
-		*/
 	}
 
 	static string makeOrpheusPrompt(string text)
@@ -231,75 +232,47 @@ public class Tara
 	}
 }
 
-public class Message(string content)
-{
-
-	public string role { get; set; } = "user";
-	public string content { get; set; } = content;
-}
-
-public class Chat
-{
-	public List<Message> messages { get; set; } = new();
-	public string model { get; set; } = "llama-3.3-70b-versatile";
-}
-
-public class GROK_RESPONSE
-{
-
-}
 
 public partial class Program
 {
-	static HttpClient http = new();
-	static async Task<string> grok_request(string prompt, string api_key)
-	{
-		HttpRequestMessage request = new();
-		request.RequestUri = new("https://api.groq.com/openai/v1/chat/completions");
-		request.Method = HttpMethod.Post;
-		request.Headers.Add("Authorization", $"Bearer {api_key}");
-		Message msg = new(prompt);
-		Chat chat = new();
-		chat.messages.Add(msg);
-		request.Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(chat));
-		request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-		HttpResponseMessage response = await http.SendAsync(request);
-		string json = await response.Content.ReadAsStringAsync();
-		return JsonConvert.DeserializeObject<dynamic>(json)["choices"][0]["message"]["content"].Value;
-	}
-
 	public static async Task Main()
 	{
 		var secrets = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
 		//Console.WriteLine($"grok_api_key: {secrets["grok_api_key"]}");
+		Tara tara = new();
 
-		//Tara tara = new();
-		/*
-		while (true)
+		OpenAIClientOptions oai_client_options = new()
 		{
-			Console.Write("Enter text: ");
-			string? text = Console.ReadLine();
-			if (text != ":q")
-			{
-				await tara.talk(text);
-			}
-			else
-			{
-				break;
-			}
-		}*/
+			Endpoint = new("https://api.groq.com/openai/v1")
+		};
 
-		//tara.listener.StartRecording();
-		//Listener listener = new();
-		Console.WriteLine("printing response...");
-		Console.WriteLine(await grok_request("hello", secrets["grok_api_key"]));
+		ChatClient oai_client = new(
+			options: oai_client_options,
+			credential: new(secrets["grok_api_key"]),
+			model: "llama-3.3-70b-versatile"
+		);
+
+		ChatMessage msg = ChatMessage.CreateUserMessage("Hi, how are you ?");
+
+		List<ChatMessage> messages = new();
+		messages.Add(msg);
+
+		AsyncCollectionResult<StreamingChatCompletionUpdate> updates = oai_client.CompleteChatStreamingAsync(messages);
+		Console.WriteLine("streaming grok response...");
+		string tara_words = "";
+		await foreach (var update in updates)
+		{
+			if (update.ContentUpdate.Count > 0)
+			{
+				string _words = update.ContentUpdate[0].Text;
+				tara_words += _words;
+				Console.Write(_words);
+			}
+		}
+
+		await tara.talk(tara_words);
+
 		Console.ReadLine();
-		/*
-		WaveOutEvent _player = new();
-		_player.Init(tara.audio_input_buffered);
-		_player.Play();
-		Console.ReadLine();
-		*/
 
 	}
 }
