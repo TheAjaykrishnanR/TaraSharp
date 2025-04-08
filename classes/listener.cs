@@ -13,7 +13,7 @@ public class Listener
 	// a continuous string of words cpatured in one go without interruptions
 	string last_sentence = "";
 
-	listener_state state;
+	public listener_state state = listener_state.LISTENING_SILENCE;
 	long last_spoken;
 
 	// PROMPT_READY event
@@ -37,6 +37,9 @@ public class Listener
 	string live_detection;
 	void on_data_available_callback(object? sender, WaveInEventArgs e)
 	{
+		// for now no interruptions
+		if (state == listener_state.SPEAKING) { return; }
+
 		byte[] recorded_buffer = e.Buffer;
 		int recorded_byte_length = e.BytesRecorded;
 		capture_buffer.AddSamples(recorded_buffer.Take(recorded_byte_length).ToArray(), 0, recorded_byte_length);
@@ -54,7 +57,7 @@ public class Listener
 				if (last_sentence.Length > 0 && DateTimeOffset.Now.ToUnixTimeMilliseconds() - last_spoken > 500)
 				{
 					state = listener_state.THINKING;
-					Console.WriteLine($"Sending querry: {last_sentence}");
+					//Console.WriteLine($"Sending querry: {last_sentence}");
 					PROMPT_READY(last_sentence);
 					last_sentence = "";
 				}
@@ -66,8 +69,27 @@ public class Listener
 				last_spoken = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 			}
 		}
-		Console.WriteLine($"{counter} => STATE: {state}, LAST_SENTENCE: {last_sentence}, LIVE: {live_detection}");
+		//Console.WriteLine($"{counter} => STATE: {state}, LAST_SENTENCE: {last_sentence}, LIVE: {live_detection}");
+		if (state == listener_state.LISTENING_WORDS || state == listener_state.LISTENING_SILENCE)
+		{
+			draw_levels_visualizer(recorded_buffer, recorded_byte_length);
+		}
 		counter++;
+	}
+
+	void draw_levels_visualizer(byte[] live_recorded_buffer_slice, int bytes_recorded)
+	{
+		short max = 0;
+		WaveBuffer buffer = new(live_recorded_buffer_slice);
+		for (int i = 0; i < bytes_recorded / 4; i++)
+		{
+			short sample = buffer.ShortBuffer[i];
+			if (sample < 0) { sample = Math.Abs(sample); }
+			if (sample > max) { max = sample; }
+		}
+		int level = (int)Math.Round((double)max * 50 / 32767 * 2);
+		string bar = "\x1b[2K\r" + string.Concat(Enumerable.Repeat("█", level));
+		Console.Write(bar);
 	}
 
 	~Listener()

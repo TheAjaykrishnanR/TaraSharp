@@ -53,6 +53,7 @@ public class Tara
 
 		// naudio live audio streaming
 		audio_buffered_stream = new(wave_format);
+		audio_buffered_stream.DiscardOnBufferOverflow = true;
 		player.Init(audio_buffered_stream);
 
 		// LLM backend [GROK]
@@ -189,8 +190,12 @@ public class Tara
 		string prompt = makeOrpheusPrompt(text);
 		List<int> ids = new();
 
-		memory_stream = new(8192);
-		wav_writer = new(memory_stream, wave_format);
+		if (!streaming)
+		{
+			memory_stream = new(8192);
+			wav_writer = new(memory_stream, wave_format);
+		}
+
 		IAsyncEnumerable<string> reply = executor.InferAsync(prompt, inferenceParams: inferPrams);
 		await foreach (string piece in reply)
 		{
@@ -214,7 +219,7 @@ public class Tara
 				}
 			}
 		}
-		wav_writer.Flush();
+		if (!streaming) wav_writer.Flush();
 		Console.WriteLine("[ EVENT ] audio token generation finished");
 	}
 
@@ -233,7 +238,7 @@ public class Tara
 		}
 	}
 
-	int SPEECH_START_DELAY = 3000;
+	int SPEECH_START_DELAY = 500;
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
@@ -265,6 +270,22 @@ public class Tara
 		}
 	}
 
+	// use only when rtf is low
+	int WORD_DELAY_FACTOR = 100;
+	public async Task segmented_talk(string text)
+	{
+		string[] sentences = text.Split(".");
+		foreach (string sentence in sentences)
+		{
+			string[] words = sentence.Split(" ");
+			if (sentence.Length > 0)
+			{
+				SPEECH_START_DELAY = words.Length * WORD_DELAY_FACTOR;
+				await talk(sentence);
+			}
+		}
+	}
+
 	List<ChatMessage> messages = new();
 	public async Task chat(string prompt)
 	{
@@ -282,7 +303,8 @@ public class Tara
 				Console.Write(_words);
 			}
 		}
-		await talk(tara_words);
+		//await talk(tara_words);
+		await segmented_talk(tara_words);
 	}
 }
 
@@ -291,11 +313,14 @@ public partial class Program
 	public static async Task Main()
 	{
 		Tara tara = new();
-		while (true)
+		Listener listener = new();
+		listener.PROMPT_READY += async (string text) =>
 		{
-			Console.Write("Enter text: ");
-			string text = Console.ReadLine();
+			listener.state = listener_state.SPEAKING;
+			Console.Write($"\n[ EVENT ] prompt_ready(): {text}");
 			await tara.chat(text);
-		}
+			listener.state = listener_state.LISTENING_SILENCE;
+		};
+		Console.ReadLine();
 	}
 }
