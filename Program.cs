@@ -26,6 +26,9 @@ public class Tara
 	Model vosk_model = new(@"vosk\vosk-model-small-en-us-0.15");
 	VoskRecognizer vosk_rec;
 
+	// LLM backend: Llaama-3.3
+	ChatClient oai_client;
+
 	public Tara()
 	{
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
@@ -37,9 +40,11 @@ public class Tara
 			BatchSize = 1024,
 
 		};
+		Console.WriteLine("[ INFO ] Loading Oepheus-TTS-1b...");
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
 
 		// snac decoder
+		Console.WriteLine("[ INFO ] Loading the SNAC decoder...");
 		model = Snac.from_pretrained(@"snac\24khz\config.json", @"snac\24khz\pytorch_model_unnormed.bin");
 		snac_device = device("cuda:0");
 		model = model.to(snac_device);
@@ -47,6 +52,22 @@ public class Tara
 		// naudio live audio streaming
 		audio_buffered_stream = new(wave_format);
 		player.Init(audio_buffered_stream);
+
+		// LLM backend [GROK]
+		var secrets = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
+		OpenAIClientOptions oai_client_options = new()
+		{
+			Endpoint = new("https://api.groq.com/openai/v1")
+		};
+		oai_client = new(
+			options: oai_client_options,
+			credential: new(secrets["grok_api_key"]),
+			model: "llama-3.3-70b-versatile"
+		);
+		SystemChatMessage system_message = ChatMessage.CreateSystemMessage(
+			""
+		);
+		messages.Add(system_message);
 	}
 
 	static string makeOrpheusPrompt(string text)
@@ -154,12 +175,10 @@ public class Tara
 	WaveFileWriter wav_writer;
 	public bool streaming = true;
 
+	InferenceParams inferPrams = new() { MaxTokens = 2400 };
+
 	public async Task speech_gen(string text)
 	{
-		InferenceParams inferPrams = new()
-		{
-			MaxTokens = 600,
-		};
 		string prompt = makeOrpheusPrompt(text);
 		List<int> ids = new();
 
@@ -188,17 +207,19 @@ public class Tara
 			}
 		}
 		wav_writer.Flush();
-		Console.WriteLine("wav_writing finished");
+		Console.WriteLine("[ EVENT ] audio token generation finished");
 	}
 
+	int REQUIRED_BUFFER_DURATION = 200;
+	int SLEEP_DURATION = 200;
 	void TimerCallback(object? sender, EventArgs e)
 	{
 		double buffered = audio_buffered_stream.BufferedDuration.TotalMilliseconds;
-		if (buffered < 100)
+		if (buffered < REQUIRED_BUFFER_DURATION)
 		{
 			player.Pause();
-			Console.WriteLine($"Thread Sleeping");
-			Thread.Sleep(200);
+			Console.WriteLine($"[ EVENT ] Thread sleeping, waiting for audio to buffer...");
+			Thread.Sleep(SLEEP_DURATION);
 			player.Play();
 		}
 	}
@@ -227,38 +248,17 @@ public class Tara
 			wav_file.Close();
 			long generation_time = sw.ElapsedMilliseconds;
 			double audio_duration = new MediaFoundationReader(output_file).TotalTime.TotalMilliseconds;
-			Console.WriteLine($"Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
+			Console.WriteLine($"[ EVENT ] Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
 		}
 	}
-}
 
-
-public partial class Program
-{
-	public static async Task Main()
+	List<ChatMessage> messages = new();
+	public async Task chat(string prompt)
 	{
-		var secrets = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
-		//Console.WriteLine($"grok_api_key: {secrets["grok_api_key"]}");
-		Tara tara = new();
-
-		OpenAIClientOptions oai_client_options = new()
-		{
-			Endpoint = new("https://api.groq.com/openai/v1")
-		};
-
-		ChatClient oai_client = new(
-			options: oai_client_options,
-			credential: new(secrets["grok_api_key"]),
-			model: "llama-3.3-70b-versatile"
-		);
-
-		ChatMessage msg = ChatMessage.CreateUserMessage("Hi, how are you ?");
-
-		List<ChatMessage> messages = new();
+		UserChatMessage msg = ChatMessage.CreateUserMessage(prompt);
 		messages.Add(msg);
-
 		AsyncCollectionResult<StreamingChatCompletionUpdate> updates = oai_client.CompleteChatStreamingAsync(messages);
-		Console.WriteLine("streaming grok response...");
+		Console.WriteLine("[ INFO ] streaming grok response...");
 		string tara_words = "";
 		await foreach (var update in updates)
 		{
@@ -269,10 +269,21 @@ public partial class Program
 				Console.Write(_words);
 			}
 		}
+		await talk(tara_words);
+	}
+}
 
-		await tara.talk(tara_words);
 
-		Console.ReadLine();
-
+public partial class Program
+{
+	public static async Task Main()
+	{
+		Tara tara = new();
+		while (true)
+		{
+			Console.Write("Enter text: ");
+			string text = Console.ReadLine();
+			await tara.chat(text);
+		}
 	}
 }

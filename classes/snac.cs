@@ -130,7 +130,7 @@ public class Snac : nn.Module
 		//Console.WriteLine(z_q.print());
 		Tensor audio_hat = decoder.forward(z_q); // leaking 
 		return audio_hat;
-		
+
 	}
 
 	public static Snac from_config(string config_path)
@@ -155,10 +155,6 @@ public class Snac : nn.Module
 	public static Snac from_pretrained(string config_path, string model_path)
 	{
 		Snac model = from_config(config_path);
-		foreach (var (i, p) in model.named_parameters().Index())
-		{
-			Console.WriteLine($"{i}: {p.name}: [{string.Join(",", p.parameter.shape)}]");
-		}
 		model.load_py(model_path);
 		model.eval();
 		return model;
@@ -479,7 +475,7 @@ class LocalMHA : nn.Module<Tensor, Tensor>
 	Tensor rotate_half(Tensor x)
 	{
 		int r = 2;
-		long[] new_shape = x.shape.Take(x.shape.Length - 1).Concat([ r, x.shape.Last() / 2 ]).ToArray();
+		long[] new_shape = x.shape.Take(x.shape.Length - 1).Concat([r, x.shape.Last() / 2]).ToArray();
 		x = x.view(new_shape);
 		(Tensor x1, Tensor x2) = (
 			x.unbind(dimension: -2)[0],
@@ -632,7 +628,7 @@ public class ResidualVectorQuantize : nn.Module
 	int codebook_size;
 	int codebook_dim;
 	int[] vq_strides;
-	int n_codebooks; 
+	int n_codebooks;
 
 	public ModuleList<VectorQuantize> quantizers = new();
 
