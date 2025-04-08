@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
+using LLama.Native;
 
 public class Tara
 {
@@ -64,9 +65,7 @@ public class Tara
 			credential: new(secrets["grok_api_key"]),
 			model: "llama-3.3-70b-versatile"
 		);
-		SystemChatMessage system_message = ChatMessage.CreateSystemMessage(
-			""
-		);
+		SystemChatMessage system_message = ChatMessage.CreateSystemMessage(File.ReadAllText(@"prompts\tara.txt"));
 		messages.Add(system_message);
 	}
 
@@ -175,8 +174,7 @@ public class Tara
 	WaveFileWriter wav_writer;
 	public bool streaming = true;
 
-	InferenceParams inferPrams = new() { MaxTokens = 2400 };
-
+	InferenceParams inferPrams = new() { MaxTokens = -1 };
 	public async Task speech_gen(string text)
 	{
 		string prompt = makeOrpheusPrompt(text);
@@ -210,8 +208,8 @@ public class Tara
 		Console.WriteLine("[ EVENT ] audio token generation finished");
 	}
 
-	int REQUIRED_BUFFER_DURATION = 200;
-	int SLEEP_DURATION = 200;
+	int REQUIRED_BUFFER_DURATION = 400;
+	int SLEEP_DURATION = 400;
 	void TimerCallback(object? sender, EventArgs e)
 	{
 		double buffered = audio_buffered_stream.BufferedDuration.TotalMilliseconds;
