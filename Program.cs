@@ -13,6 +13,7 @@ using OpenAI;
 using OpenAI.Chat;
 using System.ClientModel;
 using LLama.Native;
+using LLama.Sampling;
 
 public class Tara
 {
@@ -174,7 +175,15 @@ public class Tara
 	WaveFileWriter wav_writer;
 	public bool streaming = true;
 
-	InferenceParams inferPrams = new() { MaxTokens = -1 };
+	InferenceParams inferPrams = new()
+	{
+		MaxTokens = -1,
+		SamplingPipeline = new DefaultSamplingPipeline()
+		{
+			RepeatPenalty = 1.1f
+		},
+	};
+
 	public async Task speech_gen(string text)
 	{
 		string prompt = makeOrpheusPrompt(text);
@@ -193,7 +202,8 @@ public class Tara
 
 			if (ids.Count % 7 == 0 && ids.Count > 27)
 			{
-				byte[] bytes = convert_to_audio(ids.TakeLast(28).ToArray());
+				byte[]? bytes = convert_to_audio(ids.TakeLast(28).ToArray());
+				if (bytes == null) { continue; }
 				if (streaming)
 				{
 					audio_buffered_stream.AddSamples(bytes, 0, bytes.Length);
@@ -208,20 +218,22 @@ public class Tara
 		Console.WriteLine("[ EVENT ] audio token generation finished");
 	}
 
-	int REQUIRED_BUFFER_DURATION = 400;
-	int SLEEP_DURATION = 400;
+	int REQUIRED_BUFFER_DURATION = 300;
+	int SLEEP_DURATION = 1000;
 	void TimerCallback(object? sender, EventArgs e)
 	{
 		double buffered = audio_buffered_stream.BufferedDuration.TotalMilliseconds;
 		if (buffered < REQUIRED_BUFFER_DURATION)
 		{
+			REQUIRED_BUFFER_DURATION = 100;
 			player.Pause();
-			Console.WriteLine($"[ EVENT ] Thread sleeping, waiting for audio to buffer...");
+			Console.WriteLine($"[ EVENT ] [buf: {buffered}ms] Thread sleeping, waiting for audio to buffer...");
 			Thread.Sleep(SLEEP_DURATION);
 			player.Play();
 		}
 	}
 
+	int SPEECH_START_DELAY = 3000;
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
@@ -229,13 +241,16 @@ public class Tara
 		System.Timers.Timer timer = new(100);
 		if (streaming)
 		{
-			Task _t = Task.Run(() =>
+			Task _t = Task.Run(async () =>
 			{
 				timer.Elapsed += TimerCallback;
+				Console.WriteLine($"[ INFO ] Waiting for {SPEECH_START_DELAY}ms");
+				await Task.Delay(SPEECH_START_DELAY); // let speech_gen() generate tokens and fill the buffer
 				timer.Start();
 				player.Play();
 			});
 		}
+		Console.WriteLine("\n[ EVENT ] calling speech_gen()");
 		await speech_gen(text);
 		timer.Stop();
 		sw.Stop();
@@ -270,7 +285,6 @@ public class Tara
 		await talk(tara_words);
 	}
 }
-
 
 public partial class Program
 {
