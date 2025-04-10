@@ -36,10 +36,11 @@ public class Tara
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
-			ContextSize = 4096,
+			ContextSize = 1200,
 			GpuLayerCount = 30,
-			Threads = 16,
+			Threads = 12,
 			BatchSize = 1024,
+			FlashAttention = true
 
 		};
 		Console.WriteLine("[ INFO ] Loading Oepheus-TTS-1b...");
@@ -271,7 +272,7 @@ public class Tara
 	}
 
 	// use only when rtf is low
-	int WORD_DELAY_FACTOR = 100;
+	int WORD_DELAY_FACTOR = 150;
 	public async Task segmented_talk(string text)
 	{
 		string[] sentences = text.Split(".");

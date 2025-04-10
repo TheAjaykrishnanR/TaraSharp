@@ -2,5 +2,6 @@ bin/
 obj/
 vosk/
 prompts/
+remote/
 *.bin
 *.exe

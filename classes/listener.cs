@@ -69,10 +69,10 @@ public class Listener
 				last_spoken = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 			}
 		}
-		//Console.WriteLine($"{counter} => STATE: {state}, LAST_SENTENCE: {last_sentence}, LIVE: {live_detection}");
+		Console.WriteLine($"{counter} => STATE: {state}, LAST_SENTENCE: {last_sentence}, LIVE: {live_detection}");
 		if (state == listener_state.LISTENING_WORDS || state == listener_state.LISTENING_SILENCE)
 		{
-			draw_levels_visualizer(recorded_buffer, recorded_byte_length);
+			//draw_levels_visualizer(recorded_buffer, recorded_byte_length);
 		}
 		counter++;
 	}
