@@ -14,6 +14,7 @@ using OpenAI.Chat;
 using System.ClientModel;
 using LLama.Native;
 using LLama.Sampling;
+using Microsoft.AspNetCore.Builder;
 
 public class Tara
 {
@@ -314,6 +315,7 @@ public partial class Program
 {
 	public static async Task Main()
 	{
+		/*
 		Tara tara = new();
 		Listener listener = new();
 		listener.PROMPT_READY += async (string text) =>
@@ -323,6 +325,9 @@ public partial class Program
 			await tara.chat(text);
 			listener.state = listener_state.LISTENING_SILENCE;
 		};
-		Console.ReadLine();
+		Console.ReadLine();*/
+		var app = WebApplication.Create();
+		app.MapGet("/", () => { });
+		app.Run();
 	}
 }
