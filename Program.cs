@@ -38,10 +38,9 @@ public class Tara
 		{
 			ContextSize = 1200,
 			GpuLayerCount = 30,
-			Threads = 12,
+			Threads = 10,
 			BatchSize = 1024,
 			FlashAttention = true
-
 		};
 		Console.WriteLine("[ INFO ] Loading Oepheus-TTS-1b...");
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
@@ -182,7 +181,9 @@ public class Tara
 		MaxTokens = -1,
 		SamplingPipeline = new DefaultSamplingPipeline()
 		{
-			RepeatPenalty = 1.1f
+			RepeatPenalty = 1.1f,
+			Temperature = 0.6f,
+			TopP = 0.95f,
 		},
 	};
 
@@ -304,8 +305,8 @@ public class Tara
 				Console.Write(_words);
 			}
 		}
-		//await talk(tara_words);
-		await segmented_talk(tara_words);
+		await talk(tara_words);
+		//await segmented_talk(tara_words);
 	}
 }
 
