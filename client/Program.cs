@@ -17,9 +17,8 @@ public class Client
 	Snac model;
 	Device snac_device;
 
-	// speech recognition
-	Model vosk_model = new(@"vosk\vosk-model-small-en-us-0.15");
-	VoskRecognizer vosk_rec;
+	// LLM backend: Llaama-3.3
+	ChatClient oai_client;
 
 	string server_url;
 
@@ -38,22 +37,82 @@ public class Client
 		audio_buffered_stream.DiscardOnBufferOverflow = true;
 		player.Init(audio_buffered_stream);
 
+		// LLM backend [GROK]
+		/*
+		var secrets = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
+		OpenAIClientOptions oai_client_options = new()
+		{
+			Endpoint = new("https://api.groq.com/openai/v1")
+		};
+		oai_client = new(
+			options: oai_client_options,
+			credential: new(secrets["grok_api_key"]),
+			model: "llama-3.3-70b-versatile"
+		);
+		SystemChatMessage system_message = ChatMessage.CreateSystemMessage(File.ReadAllText(@"prompts\tara.txt"));
+		messages.Add(system_message);
+		*/
 	}
 
-	public async Task<IAsyncEnumerable<string>> send_to_server(string text)
+	List<ChatMessage> messages = new();
+	public async Task chat(string prompt)
+	{
+		UserChatMessage msg = ChatMessage.CreateUserMessage(prompt);
+		messages.Add(msg);
+		AsyncCollectionResult<StreamingChatCompletionUpdate> updates = oai_client.CompleteChatStreamingAsync(messages);
+		Console.WriteLine("[ INFO ] streaming grok response...");
+		string tara_words = "";
+		await foreach (var update in updates)
+		{
+			if (update.ContentUpdate.Count > 0)
+			{
+				string _words = update.ContentUpdate[0].Text;
+				tara_words += _words;
+				Console.Write(_words);
+			}
+		}
+		await talk(tara_words);
+		//await segmented_talk(tara_words);
+	}
+
+	public async IAsyncEnumerable<string> send_to_server(string text)
 	{
 		HttpClient http = new();
-		var response = await http.PostAsync(server_url, );
+		HttpRequestMessage request = new();
+		request.RequestUri = new(server_url);
+		request.Method = HttpMethod.Post;
+		MultipartFormDataContent formData = new();
+		formData.Add(new StringContent(text), "text");
+		request.Content = formData;
+		var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
 		char[] buffer = new char[100];
 		int charsRead = 0;
-		string token = "";
-		using (StringReader sr = new(await response.Content.ReadAsStreamAsync()))
+		using (StreamReader sr = new(await response.Content.ReadAsStreamAsync()))
 		{
+			string token = "";
 			while ((charsRead = sr.Read(buffer, 0, buffer.Length)) > 0)
 			{
-				token = string.Join("", buffer.Take(charsRead));
-				yield return token;
+				string capture = string.Join("", buffer.Take(charsRead));
+				foreach (char _c in capture)
+				{
+					if (_c == '<')
+					{
+						token = "";
+						token += _c;
+					}
+					else if (_c == '>')
+					{
+						token += _c;
+						yield return token;
+					}
+					else
+					{
+						token += _c;
+					}
+				}
+				//yield return capture;
+				Array.Clear(buffer);
 			}
 		}
 	}
@@ -223,7 +282,7 @@ public class Client
 			});
 		}
 		Console.WriteLine("\n[ EVENT ] calling server()");
-		await decode_server_reply_and_fill_audio(await send_to_server(text));
+		await decode_server_reply_and_fill_audio(send_to_server(text));
 		timer.Stop();
 		sw.Stop();
 		if (!streaming)
@@ -236,14 +295,31 @@ public class Client
 			Console.WriteLine($"[ EVENT ] Finished, generation_time: {generation_time} ms, rtf: {audio_duration / generation_time}");
 		}
 	}
+
+	// use only when rtf is low
+	int WORD_DELAY_FACTOR = 150;
+	public async Task segmented_talk(string text)
+	{
+		string[] sentences = text.Split(".");
+		foreach (string sentence in sentences)
+		{
+			string[] words = sentence.Split(" ");
+			if (sentence.Length > 0)
+			{
+				SPEECH_START_DELAY = words.Length * WORD_DELAY_FACTOR;
+				await talk(sentence);
+			}
+		}
+	}
 }
 
 public partial class Program
 {
-	public static void Main()
+	public static async Task Main()
 	{
 		string server_url = "http://localhost:5000";
 		Client client = new(server_url);
+		/*
 		Listener listener = new();
 		listener.PROMPT_READY += async (string text) =>
 		{
@@ -251,7 +327,15 @@ public partial class Program
 			Console.Write($"\n[ EVENT ] prompt_ready(): {text}");
 			await client.talk(text);
 			listener.state = listener_state.LISTENING_SILENCE;
-		};
+		};*/
+		/*
+		Console.WriteLine("Sending to server");
+		await foreach (string s in client.send_to_server("hello I am Tara"))
+		{
+			Console.WriteLine(s);
+		}*/
+
+		await client.talk("");
 		Console.ReadLine();
 	}
 }
