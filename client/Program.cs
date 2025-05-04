@@ -317,7 +317,8 @@ public partial class Program
 {
 	public static async Task Main()
 	{
-		string server_url = "http://localhost:5000";
+		//string server_url = "http://localhost:5000";
+		string server_url = "https://f48b-34-126-184-103.ngrok-free.app/";
 		Client client = new(server_url);
 		/*
 		Listener listener = new();
@@ -335,7 +336,7 @@ public partial class Program
 			Console.WriteLine(s);
 		}*/
 
-		await client.talk("");
+		await client.talk("this is a test for a test");
 		Console.ReadLine();
 	}
 }

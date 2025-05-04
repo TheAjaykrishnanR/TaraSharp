@@ -1,4 +1,5 @@
 ﻿using LLama;
+using LLama.Native;
 using LLama.Common;
 using LLama.Sampling;
 using Microsoft.AspNetCore.Builder;
@@ -10,7 +11,7 @@ public class Tara
 
 	public Tara()
 	{
-		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
+		string modelPath = @"models\orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
 			ContextSize = 1200,
@@ -55,6 +56,13 @@ public partial class Program
 {
 	public static async Task Main()
 	{
+		NativeLibraryConfig.All
+			.WithCuda()
+			.SkipCheck(true)
+			.WithAutoFallback(false)
+			.WithLogCallback((level, message) => Console.Write($"{level}: {message}"));
+		NativeApi.llama_empty_call();
+
 		var app = WebApplication.Create();
 		Tara tara = new();
 		app.MapPost("/", async (HttpContext context) =>
