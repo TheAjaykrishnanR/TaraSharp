@@ -56,26 +56,28 @@ public partial class Program
 	public static async Task Main()
 	{
 		var app = WebApplication.Create();
-		//Tara tara = new();
+		Tara tara = new();
 		app.MapPost("/", async (HttpContext context) =>
 		{
 			IFormCollection formCollection = await context.Request.ReadFormAsync();
 			string text_to_speak = formCollection["text"];
 			Console.WriteLine($"recieved POST: {text_to_speak}");
 			StreamWriter sw = new(context.Response.Body);
-			/*
 			await foreach (string text_token in tara.do_inference(text_to_speak))
 			{
 				await sw.WriteAsync(text_token);
+				await sw.FlushAsync();
 				Console.WriteLine(text_token);
-			}*/
-			foreach (string text_token in File.ReadAllLines("lined_tokens.txt"))
+			}
+			/*
+			foreach (string text_token in File.ReadAllLines(@"tests\lined_tokens.txt"))
 			{
 				await sw.WriteAsync(text_token);
 				await sw.FlushAsync();
 				Console.WriteLine(text_token);
 				//await Task.Delay(500);
 			}
+			*/
 		});
 		app.Run();
 	}
