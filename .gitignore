@@ -1,7 +1,8 @@
-bin/
-obj/
-vosk/
-prompts/
-remote/
+server/bin/
+server/obj/
+client/vosk/
+client/prompts/
+client/bin/
+client/obj/
 *.bin
 *.exe

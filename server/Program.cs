@@ -309,6 +309,12 @@ public class Tara
 		await talk(tara_words);
 		//await segmented_talk(tara_words);
 	}
+
+	public IAsyncEnumerable<string> do_inference(string text)
+	{
+		string prompt = makeOrpheusPrompt(text);
+		return executor.InferAsync(prompt, inferenceParams: inferPrams);
+	}
 }
 
 public partial class Program
@@ -327,7 +333,12 @@ public partial class Program
 		};
 		Console.ReadLine();*/
 		var app = WebApplication.Create();
-		app.MapGet("/", () => { });
+		Tara tara = new();
+		app.MapPost("/", async (HttpContext context) =>
+		{
+			StreamWriter sw = new(context.Response.Body);
+			await foreach (string text_token in tara.do_inference(text)) { }
+		});
 		app.Run();
 	}
 }
