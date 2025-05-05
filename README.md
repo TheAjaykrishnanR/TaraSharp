@@ -11,7 +11,23 @@ written from : [isaiahbjork/orpheus-tts-local](https://github.com/isaiahbjork/or
 Cuda 12
 ```
 
-### Usage
+## Usage
+
+### Google Colab
+1. Server: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lu2Mocc3UU4RtSOgZCm66sf0DlIwQNmi?usp=sharing)
+    1. Install .NET (press Enter)
+    2. Enter your NGROK auth key and copy the public url
+    3. Download the GGUF file
+    4. Run the server (Wait till you see the localhost link)
+
+2. Client
+    1. `git clone https://github.com/TheAjaykrishnanR/TaraSharp --branch colab`
+    2. `cd TaraSharp/client`
+    3. `dotnet run`
+    4. Enter the NGROK public url that you have copied earlier
+    5. Enter text
+
+### Local 
 
 1. Clone the git repo:
 
