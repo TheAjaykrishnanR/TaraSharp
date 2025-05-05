@@ -36,7 +36,7 @@ public class Tara
 		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
-			ContextSize = 1200,
+			ContextSize = 10240,
 			GpuLayerCount = 30,
 			Threads = 12,
 			BatchSize = 1024,
