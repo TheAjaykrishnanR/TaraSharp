@@ -15,7 +15,7 @@ Cuda 12 (not required when running with colab)
 
 ### Google Colab
 1. Server: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lu2Mocc3UU4RtSOgZCm66sf0DlIwQNmi?usp=sharing)
-    1. Install .NET (press Enter)
+    1. Install .NET (press Enter in the colab output cell to confirm installation)
     2. Enter your NGROK auth key and copy the public url
     3. Download the GGUF file
     4. Run the server (Wait till you see the localhost link)
