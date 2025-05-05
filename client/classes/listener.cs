@@ -69,15 +69,15 @@ public class Listener
 				last_spoken = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 			}
 		}
-		Console.WriteLine($"{counter} => STATE: {state}, LAST_SENTENCE: {last_sentence}, LIVE: {live_detection}");
+		//Console.WriteLine($"{counter} => STATE: {state}, LAST_SENTENCE: {last_sentence}, LIVE: {live_detection}");
 		if (state == listener_state.LISTENING_WORDS || state == listener_state.LISTENING_SILENCE)
 		{
-			//draw_levels_visualizer(recorded_buffer, recorded_byte_length);
+			draw_levels_visualizer(recorded_buffer, recorded_byte_length, state);
 		}
 		counter++;
 	}
 
-	void draw_levels_visualizer(byte[] live_recorded_buffer_slice, int bytes_recorded)
+	void draw_levels_visualizer(byte[] live_recorded_buffer_slice, int bytes_recorded, listener_state state)
 	{
 		short max = 0;
 		WaveBuffer buffer = new(live_recorded_buffer_slice);
@@ -88,7 +88,7 @@ public class Listener
 			if (sample > max) { max = sample; }
 		}
 		int level = (int)Math.Round((double)max * 50 / 32767 * 2);
-		string bar = "\x1b[2K\r" + string.Concat(Enumerable.Repeat("█", level));
+		string bar = "\x1b[2K\r" + $"[{state}]" + string.Concat(Enumerable.Repeat("█", level));
 		Console.Write(bar);
 	}
 

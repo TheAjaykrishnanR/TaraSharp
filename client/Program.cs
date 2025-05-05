@@ -35,6 +35,7 @@ public class Client
 		// naudio live audio streaming
 		audio_buffered_stream = new(wave_format);
 		audio_buffered_stream.DiscardOnBufferOverflow = true;
+		audio_buffered_stream.BufferDuration = TimeSpan.FromSeconds(30);
 		player.Init(audio_buffered_stream);
 
 		// LLM backend [GROK]
@@ -115,17 +116,17 @@ public class Client
 		}
 	}
 
-	byte[]? convert_to_audio(int[] multiframe)
+	byte[]? convert_to_audio(int[] ids)
 	{
 		int[] frames;
-		if (multiframe.Length < 7) { Console.WriteLine("multiframe return"); return null; }
+		if (ids.Length < 7) { Console.WriteLine("ids less than 7"); return null; }
 
 		Tensor codes_0 = tensor(Array.Empty<int>(), device: snac_device, dtype: int32);
 		Tensor codes_1 = tensor(Array.Empty<int>(), device: snac_device, dtype: int32);
 		Tensor codes_2 = tensor(Array.Empty<int>(), device: snac_device, dtype: int32);
 
-		int num_frames = multiframe.Length / 7;
-		frames = multiframe.Take(num_frames * 7).ToArray();
+		int num_frames = ids.Length / 7;
+		frames = ids.Take(num_frames * 7).ToArray();
 
 		for (int j = 0; j < num_frames; j++)
 		{
@@ -189,11 +190,11 @@ public class Client
 
 	int turn_token_into_ids(int token, int count)
 	{
-		return token - 10 - ((count % 7) * 4096);
+		return token - 10 - count % 7 * 4096;
 	}
 
 	string TOKEN_PREFIX = "<custom_token_";
-	public int parse_piece_to_token(string piece)
+	int parse_piece_to_token(string piece)
 	{
 		if (!piece.Contains(TOKEN_PREFIX)) { return 0; }
 		string token_str = piece.Replace(TOKEN_PREFIX, "");
@@ -232,17 +233,18 @@ public class Client
 			if (ids.Count % 7 == 0 && ids.Count > 27)
 			{
 				byte[]? bytes = convert_to_audio(ids.TakeLast(28).ToArray());
-				if (bytes == null) { continue; }
+				if (bytes == null) { Console.WriteLine("bytes are null"); continue; }
 				if (streaming)
 				{
 					audio_buffered_stream.AddSamples(bytes, 0, bytes.Length);
+					//Console.WriteLine(audio_buffered_stream.BufferDuration - audio_buffered_stream.BufferedDuration);
 				}
 				else
 				{
 					await wav_writer.WriteAsync(bytes, 0, bytes.Length);
 				}
 			}
-			Console.WriteLine(piece);
+			//Console.WriteLine(piece);
 		}
 		if (!streaming) wav_writer.Flush();
 		Console.WriteLine("[ EVENT ] audio token generation finished");
@@ -263,7 +265,7 @@ public class Client
 		}
 	}
 
-	int SPEECH_START_DELAY = 100;
+	int SPEECH_START_DELAY = 1000;
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
@@ -282,6 +284,7 @@ public class Client
 		}
 		Console.WriteLine("\n[ EVENT ] calling server()");
 		await decode_server_reply_and_fill_audio(send_to_server(text));
+		//await decode_server_reply_and_fill_audio(convert_to_async_enumerable(File.ReadAllLines("local_tokens.txt")));
 		timer.Stop();
 		sw.Stop();
 		if (!streaming)
