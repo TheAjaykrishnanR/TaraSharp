@@ -11,7 +11,7 @@ public class Tara
 
 	public Tara()
 	{
-		string modelPath = @"models\orpheus-3b-0.1-ft-q4_k_m.gguf";
+		string modelPath = @"models/orpheus-3b-0.1-ft-q4_k_m.gguf";
 		ModelParams modelParams = new(modelPath)
 		{
 			ContextSize = 1200,

@@ -264,7 +264,7 @@ public class Client
 		}
 	}
 
-	int SPEECH_START_DELAY = 500;
+	int SPEECH_START_DELAY = 800;
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
@@ -297,7 +297,7 @@ public class Client
 	}
 
 	// use only when rtf is low
-	int WORD_DELAY_FACTOR = 150;
+	int WORD_DELAY_FACTOR = 100;
 	public async Task segmented_talk(string text)
 	{
 		string[] sentences = text.Split(".");
@@ -318,7 +318,7 @@ public partial class Program
 	public static async Task Main()
 	{
 		//string server_url = "http://localhost:5000";
-		string server_url = "https://f48b-34-126-184-103.ngrok-free.app/";
+		string server_url = "https://e465-34-125-217-44.ngrok-free.app/";
 		Client client = new(server_url);
 		/*
 		Listener listener = new();
@@ -335,8 +335,18 @@ public partial class Program
 		{
 			Console.WriteLine(s);
 		}*/
-
-		await client.talk("this is a test for a test");
-		Console.ReadLine();
+		while (true)
+		{
+			Console.Write("Enter Text: ");
+			string text = Console.ReadLine();
+			if (text != ":q")
+			{
+				await client.talk(text);
+			}
+			else
+			{
+				break;
+			}
+		}
 	}
 }
