@@ -8,7 +8,7 @@ written from : [isaiahbjork/orpheus-tts-local](https://github.com/isaiahbjork/or
 
 ```
 .NET 9
-Cuda 12
+Cuda 12 (not required when running with colab)
 ```
 
 ## Usage
