@@ -318,7 +318,9 @@ public partial class Program
 	public static async Task Main()
 	{
 		//string server_url = "http://localhost:5000";
-		string server_url = "https://e465-34-125-217-44.ngrok-free.app/";
+		string server_url;
+		Console.Write("Enter your ngrok url: ");
+		server_url = Console.ReadLine();
 		Client client = new(server_url);
 		/*
 		Listener listener = new();
