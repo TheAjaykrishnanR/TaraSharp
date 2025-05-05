@@ -7,7 +7,6 @@
     <RootNamespace>tara</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <UserSecretsId>fe495686-5258-4b22-9d09-730366d9c341</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

@@ -38,7 +38,6 @@ public class Client
 		player.Init(audio_buffered_stream);
 
 		// LLM backend [GROK]
-		/*
 		var secrets = new ConfigurationBuilder().AddUserSecrets<Program>().Build();
 		OpenAIClientOptions oai_client_options = new()
 		{
@@ -51,7 +50,6 @@ public class Client
 		);
 		SystemChatMessage system_message = ChatMessage.CreateSystemMessage(File.ReadAllText(@"prompts\tara.txt"));
 		messages.Add(system_message);
-		*/
 	}
 
 	List<ChatMessage> messages = new();
@@ -244,6 +242,7 @@ public class Client
 					await wav_writer.WriteAsync(bytes, 0, bytes.Length);
 				}
 			}
+			Console.WriteLine(piece);
 		}
 		if (!streaming) wav_writer.Flush();
 		Console.WriteLine("[ EVENT ] audio token generation finished");
@@ -264,7 +263,7 @@ public class Client
 		}
 	}
 
-	int SPEECH_START_DELAY = 800;
+	int SPEECH_START_DELAY = 100;
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
 		Stopwatch sw = new();
@@ -311,6 +310,13 @@ public class Client
 			}
 		}
 	}
+	async IAsyncEnumerable<string> convert_to_async_enumerable(string[] s_arr)
+	{
+		foreach (string s in s_arr)
+		{
+			yield return s;
+		}
+	}
 }
 
 public partial class Program
@@ -322,33 +328,15 @@ public partial class Program
 		Console.Write("Enter your ngrok url: ");
 		server_url = Console.ReadLine();
 		Client client = new(server_url);
-		/*
 		Listener listener = new();
 		listener.PROMPT_READY += async (string text) =>
 		{
 			listener.state = listener_state.SPEAKING;
 			Console.Write($"\n[ EVENT ] prompt_ready(): {text}");
-			await client.talk(text);
+			await client.chat(text);
+			Console.WriteLine("Finished Speaking");
 			listener.state = listener_state.LISTENING_SILENCE;
-		};*/
-		/*
-		Console.WriteLine("Sending to server");
-		await foreach (string s in client.send_to_server("hello I am Tara"))
-		{
-			Console.WriteLine(s);
-		}*/
-		while (true)
-		{
-			Console.Write("Enter Text: ");
-			string text = Console.ReadLine();
-			if (text != ":q")
-			{
-				await client.talk(text);
-			}
-			else
-			{
-				break;
-			}
-		}
+		};
+		Console.ReadLine();
 	}
 }
