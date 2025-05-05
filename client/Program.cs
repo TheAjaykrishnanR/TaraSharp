@@ -35,6 +35,7 @@ public class Client
 		// naudio live audio streaming
 		audio_buffered_stream = new(wave_format);
 		audio_buffered_stream.DiscardOnBufferOverflow = true;
+		audio_buffered_stream.BufferDuration = TimeSpan.FromSeconds(30);
 		player.Init(audio_buffered_stream);
 
 		// LLM backend [GROK]
