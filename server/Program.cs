@@ -75,17 +75,7 @@ public partial class Program
 			{
 				await sw.WriteAsync(text_token);
 				await sw.FlushAsync();
-				Console.WriteLine(text_token);
 			}
-			/*
-			foreach (string text_token in File.ReadAllLines(@"tests\lined_tokens.txt"))
-			{
-				await sw.WriteAsync(text_token);
-				await sw.FlushAsync();
-				Console.WriteLine(text_token);
-				//await Task.Delay(500);
-			}
-			*/
 		});
 		app.Run();
 	}
