@@ -4,6 +4,7 @@ using TorchSharp;
 using static TorchSharp.torch;
 using NAudio.Wave;
 using System.Diagnostics;
+using LLama.Sampling;
 
 public class Tara
 {
@@ -14,21 +15,26 @@ public class Tara
 
 	public Tara()
 	{
-		string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
+		// 1bit
+		string modelPath = @"C:\Users\Jayakuttan\Downloads\orpheus-3b-0.1-ft-UD-IQ1_S.gguf";
+		// 2bit
+		//string modelPath = @"C:\Users\Jayakuttan\Downloads\orpheus-3b-0.1-ft.Q2_K.gguf"; 
+		// 4bit
+		//string modelPath = @"E:\ai\orpheus-tts\orpheus_gguf\orpheus-3b-0.1-ft-q4_k_m.gguf";
+
 		ModelParams modelParams = new(modelPath)
 		{
 			ContextSize = 10240,
 			GpuLayerCount = 30,
 			Threads = 16,
 			BatchSize = 1024,
-
 		};
+
 		executor = new(LLamaWeights.LoadFromFile(modelParams), modelParams);
 
 		model = Snac.from_pretrained(@"snac\24khz\config.json", @"snac\24khz\pytorch_model_unnormed.bin");
 		snac_device = device("cuda:0");
 		model = model.to(snac_device);
-
 
 		audio_buffered_stream = new(wave_format);
 		player.Init(audio_buffered_stream);
@@ -129,6 +135,15 @@ public class Tara
 		return token;
 	}
 
+	void MeasureTime(Action func, string? funcName = null)
+	{
+		Stopwatch sw = new();
+		sw.Start();
+		func();
+		sw.Stop();
+		Console.WriteLine($"{funcName ?? "unknown"}() took {sw.ElapsedMilliseconds}ms");
+	}
+
 	// <summary>
 	// streaming infra
 	// </summary>
@@ -143,7 +158,11 @@ public class Tara
 	{
 		InferenceParams inferPrams = new()
 		{
-			MaxTokens = 600,
+			MaxTokens = -1,
+			SamplingPipeline = new DefaultSamplingPipeline()
+			{
+				RepeatPenalty = 1.1f
+			},
 		};
 		string prompt = makeOrpheusPrompt(text);
 		List<int> ids = new();
@@ -161,15 +180,22 @@ public class Tara
 
 			if (ids.Count % 7 == 0 && ids.Count > 27)
 			{
-				byte[] bytes = convert_to_audio(ids.TakeLast(28).ToArray());
-				if (streaming)
+				MeasureTime(() =>
 				{
-					audio_buffered_stream.AddSamples(bytes, 0, bytes.Length);
-				}
-				else
-				{
-					await wav_writer.WriteAsync(bytes, 0, bytes.Length);
-				}
+					Task.Run(async () =>
+					{
+						byte[]? bytes = convert_to_audio(ids.TakeLast(28).ToArray());
+						//if (bytes == null) continue;
+						if (streaming)
+						{
+							audio_buffered_stream.AddSamples(bytes, 0, bytes.Length);
+						}
+						else
+						{
+							await wav_writer.WriteAsync(bytes, 0, bytes.Length);
+						}
+					});
+				}, "decoder");
 			}
 		}
 		wav_writer.Flush();
@@ -179,20 +205,21 @@ public class Tara
 	void TimerCallback(object? sender, EventArgs e)
 	{
 		double buffered = audio_buffered_stream.BufferedDuration.TotalMilliseconds;
-		if (buffered < 100)
+		if (buffered < 10)
 		{
 			player.Pause();
-			Console.WriteLine($"Thread Sleeping");
-			Thread.Sleep(200);
+			//Console.WriteLine($"Thread Sleeping");
+			Thread.Sleep(10);
 			player.Play();
 		}
 	}
 
+	Stopwatch sw;
 	public async Task talk(string text, string output_file = @"outputs\tara.wav")
 	{
-		Stopwatch sw = new();
+		sw = new();
 		sw.Start();
-		System.Timers.Timer timer = new(100);
+		System.Timers.Timer timer = new(10);
 		if (streaming)
 		{
 			Task _t = Task.Run(() =>
